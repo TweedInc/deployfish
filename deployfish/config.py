@@ -54,7 +54,7 @@ class Config(object):
     ENVIRONMENT_RE = re.compile('\$\{env.(?P<key>.+)\}')
 
     def __init__(self, filename='deployfish.yml', env_file=None, import_env=False, interpolate=True, tfe_token=None, use_aws_section=True, raw_config=None, boto3_session=None):
-        #Load a raw config if it was provided
+        # Load a raw config if it was provided
         if raw_config:
             self.__raw = raw_config
         else:
