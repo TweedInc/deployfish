@@ -268,7 +268,7 @@ def version(ctx, service_name):
     print(service.version())
 
 
-@cli.command('update', short_help='Update task defintion for a service')
+@cli.command('update', short_help='Update task definition for a service')
 @click.pass_context
 @click.argument('service_name')
 @click.option('--dry-run/--no-dry-run', default=False, help="Don't actually create a new task definition")

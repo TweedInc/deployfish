@@ -10,6 +10,7 @@ import re
 import shlex
 import time
 
+import click
 import botocore
 import docker
 
@@ -426,7 +427,9 @@ class ContainerDefinition(VolumeMixin):
         :param config: section which defines local image
         :return: image name to be used in the container definition
         """
-        pass
+        self.registry_name = config['ecr_repo']
+        self.local_image = config['source_image']
+        self.destination_image = config['destination_image']
 
     def push_local_image(self):
         """
@@ -434,7 +437,8 @@ class ContainerDefinition(VolumeMixin):
         :return: None
         """
         auth_data = self.ecr.get_authorization_token()
-        registry_url = self.registry_endpoint
+        registry_url = auth_data['authorizationData'][0]['proxyEndpoint']
+
         (username, password) = base64.b64decode(
             bytes(auth_data['authorizationData'][0]['authorizationToken'], 'ascii')).decode('ascii').split(':')
 
@@ -447,11 +451,14 @@ class ContainerDefinition(VolumeMixin):
 
         source_image = docker_client.images.get(self.local_image)
         repo_url = f"{registry_url.replace('https://', '')}/{self.registry_name}"
+
+        click.secho(f"Tagging image as {repo_url}:{self.destination_image}", fg="cyan")
         source_image.tag(f"{repo_url}:{self.destination_image}")
 
+        click.secho(f"Pushing to {repo_url}", fg="cyan")
         docker_client.images.push(repo_url, tag=self.destination_image)
-        # logger.info(f"Pushed image {repo_url}:{self.destination_image} to ECR")
 
+        self.image = f"{repo_url}:{self.destination_image}"
 
     def render(self):
         return(self.__render())
@@ -469,7 +476,7 @@ class ContainerDefinition(VolumeMixin):
         if 'image' in yml:
             self.image = yml['image']
         elif 'image_local' in yml:
-            self.image = self.parse_local_image(yml['image_local'])
+            self.parse_local_image(yml['image_local'])
 
         if 'cpu' in yml:
             self.cpu = yml['cpu']
@@ -825,9 +832,9 @@ class TaskDefinition(VolumeMixin):
         return self.containers[0].get_helper_tasks()
 
     def create(self):
-        kwargs = self.__render()
         for c in self.containers:
             c.push_local_image()
+        kwargs = self.__render()
         response = self.ecs.register_task_definition(**kwargs)
         self.__defaults()
         self.from_aws(response['taskDefinition']['taskDefinitionArn'])
@@ -1118,6 +1125,7 @@ class Task(object):
             return
         self.register_task_definition()
         self.scheduler.schedule()
+        click.secho(f"Scheduled task {self.taskName}", fg="cyan")
 
     def unschedule(self):
         """
