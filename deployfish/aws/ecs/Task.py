@@ -1098,7 +1098,7 @@ class Task(object):
         prefix = self.active_task_definition.containers[0].logConfiguration.options['awslogs-stream-prefix']
         group = self.active_task_definition.containers[0].logConfiguration.options['awslogs-group']
         container = self.active_task_definition.containers[0].name
-        task_id = self.taskarn.split(':')[-1][5:]
+        task_id = self.taskarn.split(':')[-1].split('/')[-1]
         stream = "{}/{}/{}".format(prefix, container, task_id)
 
         logclient = get_boto3_session().client('logs')
