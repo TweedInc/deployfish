@@ -16,3 +16,4 @@ build
 real_tests
 
 .mypy_cache
+/venv/
