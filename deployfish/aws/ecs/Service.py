@@ -433,6 +433,7 @@ class Service(object):
         self,
         load_balancer_arn,
         target_group_name,
+        target_type,
         container_name,
         container_port,
         container_protocol,
@@ -451,6 +452,7 @@ class Service(object):
         self.__dynamic_alb = {
             'load_balancer_arn': load_balancer_arn,
             'target_group_name': target_group_name,
+            'target_type': target_type,
             'container_name': container_name,
             'container_port': container_port,
             'container_protocol': container_protocol,
@@ -652,7 +654,7 @@ class Service(object):
                 Matcher={
                     'HttpCode': str(self.dynamic_alb['health_check_http_code'])
                 },
-                TargetType='ip',
+                TargetType=self.dynamic_alb['target_type']
             )
             tg_arn = response['TargetGroups'][0]['TargetGroupArn']
 
@@ -750,6 +752,7 @@ class Service(object):
             self.set_dynamic_alb(
                 yml['dynamic_alb']['load_balancer_arn'],
                 yml['dynamic_alb']['target_group_name'],
+                yml['dynamic_alb'].get('target_type', 'ip'),
                 yml['dynamic_alb']['container_name'],
                 yml['dynamic_alb']['container_port'],
                 yml['dynamic_alb']['container_protocol'],
