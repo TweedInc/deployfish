@@ -271,6 +271,11 @@ class Config(object):
             # uppercasing the result.
             raw[key] = self.ENVIRONMENT_RE.sub(self.__env_replace(m.group('key'), replacers), value)
 
+            try:
+                raw[key] = int(raw[key])
+            except:
+                pass
+
     def __do_list(self, raw, replacers):
         for i, value in enumerate(raw):
             self.__replace(raw, i, value, replacers)
