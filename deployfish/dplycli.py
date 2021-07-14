@@ -28,16 +28,17 @@ def print_service_info(service):
         click.secho('      count             : {}'.format(service.asg.count), fg="cyan")
         click.secho('      min_size          : {}'.format(service.asg.min), fg="cyan")
         click.secho('      max_size          : {}'.format(service.asg.max), fg="cyan")
-    if service.load_balancer:
-        click.secho('    load_balancer:', fg="cyan")
-        click.secho('      service_role_arn  : {}'.format(service.roleArn), fg="cyan")
-        click.secho('      type              : {}'.format(service.load_balancer['type']), fg="cyan")
-        if service.load_balancer['type'] == 'elb':
-            click.secho('      load_balancer_id  : {}'.format(service.load_balancer['load_balancer_name']), fg="cyan")
-        else:
-            click.secho('      target_group_arn  : {}'.format(service.load_balancer['target_group_arn']), fg="cyan")
-        click.secho('      container_name    : {}'.format(service.load_balancer['container_name']), fg="cyan")
-        click.secho('      container_port    : {}'.format(service.load_balancer['container_port']), fg="cyan")
+    if service.load_balancers:
+        for lb in service.load_balancers:
+            click.secho('    load_balancer:', fg="cyan")
+            click.secho('      service_role_arn  : {}'.format(service.roleArn), fg="cyan")
+            click.secho('      type              : {}'.format(lb['type']), fg="cyan")
+            if lb['type'] == 'elb':
+                click.secho('      load_balancer_id  : {}'.format(lb['load_balancer_name']), fg="cyan")
+            else:
+                click.secho('      target_group_arn  : {}'.format(lb['target_group_arn']), fg="cyan")
+            click.secho('      container_name    : {}'.format(lb['container_name']), fg="cyan")
+            click.secho('      container_port    : {}'.format(lb['container_port']), fg="cyan")
     if service.dynamic_alb:
         click.secho('    dynamic_alb:', fg="cyan")
         for key, val in service.dynamic_alb.items():

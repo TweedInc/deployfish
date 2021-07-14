@@ -117,6 +117,7 @@ class Service(object):
     def __defaults(self):
         self._roleArn = None
         self.__load_balancer = {}
+        self.__load_balancers = []
         self.__dynamic_alb = {}
         self.__vpc_configuration = {}
         self.__placement_constraints = []
@@ -404,6 +405,34 @@ class Service(object):
                 self.__load_balancer['container_port'] = self.__aws_service['loadBalancers'][0]['containerPort']
         return self.__load_balancer
 
+    # custom logic to support multiple target-group registration for a service
+    @property
+    def load_balancers(self):
+        """
+        Returns the multiple load balancers for a service, if it exists.
+        :return: list
+        """
+        if self.__aws_service:
+            if self.__aws_service['loadBalancers']:
+                self.__load_balancers = []
+                for lb in self.__aws_service['loadBalancers']:
+                    if 'loadBalancerName' in lb:
+                        load_balancer = {
+                            'type': 'elb',
+                            'load_balancer_name': lb['loadBalancerName'],
+                        }
+                    else:
+                        load_balancer = {
+                            'type': 'alb',
+                            'target_group_arn': lb['targetGroupArn'],
+                        }
+                    load_balancer['container_name'] = lb['containerName']
+                    load_balancer['container_port'] = lb['containerPort'] 
+
+                    self.__load_balancers.append(load_balancer)
+
+        return self.__load_balancers
+
     def set_elb(self, load_balancer_name, container_name, container_port):
         self.__load_balancer = {
             'type': 'elb',
@@ -564,22 +593,24 @@ class Service(object):
         r['cluster'] = self.clusterName
         r['serviceName'] = self.serviceName
         r['launchType'] = self.launchType
-        if self.load_balancer:
-            if self.launchType != 'FARGATE':
+        if self.load_balancers:
+            if self.launchType != 'FARGATE' and self.roleArn is not None:
                 r['role'] = self.roleArn
             r['loadBalancers'] = []
-            if self.load_balancer['type'] == 'elb':
-                r['loadBalancers'].append({
-                    'loadBalancerName': self.load_balancer['load_balancer_name'],
-                    'containerName': self.load_balancer['container_name'],
-                    'containerPort': self.load_balancer['container_port'],
-                })
-            else:
-                r['loadBalancers'].append({
-                    'targetGroupArn': self.load_balancer['target_group_arn'],
-                    'containerName': self.load_balancer['container_name'],
-                    'containerPort': self.load_balancer['container_port'],
-                })
+            # updated logic to support multiple target-group registration for a service
+            for lb in self.load_balancers:
+                if lb['type'] == 'elb':
+                    r['loadBalancers'].append({
+                        'loadBalancerName': lb['load_balancer_name'],
+                        'containerName': lb['container_name'],
+                        'containerPort': lb['container_port'],
+                    })
+                else:
+                    r['loadBalancers'].append({
+                        'targetGroupArn': lb['target_group_arn'],
+                        'containerName': lb['container_name'],
+                        'containerPort': lb['container_port'],
+                    })
         if self.dynamic_alb:
             r['loadBalancers'] = [
                 {
@@ -730,24 +761,42 @@ class Service(object):
         if 'application_scaling' in yml:
             self.scaling = ApplicationAutoscaling(yml['name'], yml['cluster'], yml=yml['application_scaling'])
         if 'load_balancer' in yml:
-            if 'service_role_arn' in yml:
-                # backwards compatibility for deployfish.yml < 0.3.6
-                self.roleArn = yml['service_role_arn']
-            else:
-                self.roleArn = yml['load_balancer']['service_role_arn']
-            if 'load_balancer_name' in yml['load_balancer']:
-                self.set_elb(
-                    yml['load_balancer']['load_balancer_name'],
-                    yml['load_balancer']['container_name'],
-                    yml['load_balancer']['container_port'],
-                )
-            elif 'target_group_arn' in yml['load_balancer']:
-                self.set_alb(
-                    yml['load_balancer']['target_group_arn'],
-                    yml['load_balancer']['container_name'],
-                    yml['load_balancer']['container_port'],
-                )
+            if 'target_groups' in yml['load_balancer']:
+                # If we want the service to register itself with multiple target groups,
+                # the "load_balancer" section will have a list entry named "target_groups".
+                # Each item in the target_groups list will be a dict with keys "target_group_arn",
+                # "container_name" and "container_port"
 
+                # omit service-role for multiple target groups registration(Amazon ECS will use service-linked role named AWSServiceRoleForECS)
+                for group in yml['load_balancer']['target_groups']:
+                    self.__load_balancers.append({
+                        'type': 'alb',
+                        'target_group_arn': group['target_group_arn'],
+                        'container_name': group['container_name'],
+                        'container_port': group['container_port']
+                    })
+            else:
+                # We either have just one target group, or we're using an ELB
+                if 'service_role_arn' in yml:
+                    # backwards compatibility for deployfish.yml < 0.3.6
+                    self.roleArn = yml['service_role_arn']
+                else:
+                    self.roleArn = yml['load_balancer']['service_role_arn']
+                if 'load_balancer_name' in yml['load_balancer']:
+                    self.set_elb(
+                        yml['load_balancer']['load_balancer_name'],
+                        yml['load_balancer']['container_name'],
+                        yml['load_balancer']['container_port'],
+                    )
+                elif 'target_group_arn' in yml['load_balancer']:
+                    self.set_alb(
+                        yml['load_balancer']['target_group_arn'],
+                        yml['load_balancer']['container_name'],
+                        yml['load_balancer']['container_port'],
+                    )
+
+        # TweedInc custom dynamic_alb config
+        # does not support multiple target-groups for a service yet
         if 'dynamic_alb' in yml:
             self.set_dynamic_alb(
                 yml['dynamic_alb']['load_balancer_arn'],
