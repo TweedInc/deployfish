@@ -922,6 +922,7 @@ class Task(object):
         self.cluster_specified = False
         self.timeout = 600
         self.exit_codes_overrides = {}
+        self.propagate_tags = 'TASK_DEFINITION'
         self.__defaults()
         self.from_yaml(yml)
         self.from_aws()
@@ -974,6 +975,8 @@ class Task(object):
             r['placementStrategy'] = self.placement_strategy
         if self.group:
             r['group'] = self.group
+        if self.propagate_tags:
+            r['propagateTags'] = self.propagate_tags
         return r
 
     def _get_cluster_arn(self):
@@ -1028,6 +1031,8 @@ class Task(object):
             "DEPLOYFISH_CLUSTER_NAME": self.clusterName
         }
         self.desired_task_definition.inject_environment(deployfish_environment)
+        if 'propagate_tags' in yml:
+            self.propagate_tags = yml['propagate_tags']
         parameters = []
         if 'config' in yml:
             parameters = yml['config']
