@@ -108,6 +108,7 @@ class Service(object):
         self.__defaults()
         self.service_tags = []
         self.__dynamic_alb = {}
+        self.propagate_tags = 'TASK_DEFINITION'
         self.from_yaml(yml)
         self.from_aws()
 
@@ -640,6 +641,8 @@ class Service(object):
         if self.schedulingStrategy:
             r['schedulingStrategy'] = self.schedulingStrategy
         r['tags'] = self.service_tags
+        if self.propagate_tags:
+            r['propagateTags'] = self.propagate_tags
         return r
 
     def _service_discovery_from_yml(self, yml):
@@ -858,6 +861,8 @@ class Service(object):
             parameters = yml['config']
         self.parameter_store = ParameterStore(self._serviceName, self._clusterName, yml=parameters)
         self.service_tags = get_tags(yml)
+        if 'propagate_tags' in yml:
+            self.propagate_tags = yml['propagate_tags']
         if 'cw_log_groups' in yml:
             self.__cw_log_groups = yml['cw_log_groups']
             for g in self.__cw_log_groups:
