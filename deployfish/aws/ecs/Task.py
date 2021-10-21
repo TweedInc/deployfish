@@ -1170,7 +1170,8 @@ class Task(object):
                 print("Waiting...")
                 time.sleep(self.timeout / (self.timeout / 10))
                 if self._check_done(cluster):
-                    return
+                    return True
+            return self._check_done(cluster)
 
     def __create_cw_log_groups(self):
         cw = get_boto3_session().client('logs')
@@ -1196,8 +1197,9 @@ class Task(object):
         self.response = self.ecs.run_task(**kwargs)
         # print(self.response)
         if wait:
-            self._wait_until_stopped()
+            task_status = self._wait_until_stopped()
             self._get_cloudwatch_logs()
+            return task_status
 
     def schedule(self):
         """

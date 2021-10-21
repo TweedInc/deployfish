@@ -787,7 +787,13 @@ def task_run(ctx, task_name, wait):
     any logs.
     """
     task = Task(task_name, config=ctx.obj['CONFIG'])
-    task.run(wait)
+    task_status = task.run(wait)
+    if wait:
+        if task_status:
+            click.secho("  Task completed.", fg='white')
+        else:
+            click.secho("  FAILURE: Task failed to complete.", fg='red')
+            sys.exit(1)
 
 
 @task.command('schedule', short_help="Schedule a task")
